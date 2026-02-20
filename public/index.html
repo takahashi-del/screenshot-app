@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>スクリーンショット取得ツール</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #333;
+      min-height: 100vh;
+      padding: 32px 16px;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #1a1a2e;
+    }
+
+    .subtitle {
+      font-size: 0.9rem;
+      color: #666;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+      margin-bottom: 24px;
+    }
+
+    .url-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .url-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .url-row input {
+      flex: 1;
+      padding: 10px 14px;
+      border: 1.5px solid #ddd;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    .url-row input:focus {
+      border-color: #4f8ef7;
+    }
+
+    .btn-remove {
+      background: none;
+      border: 1.5px solid #e0e0e0;
+      color: #999;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 1.1rem;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-remove:hover {
+      border-color: #e74c3c;
+      color: #e74c3c;
+      background: #fff5f5;
+    }
+
+    .btn-add {
+      background: none;
+      border: 1.5px dashed #4f8ef7;
+      color: #4f8ef7;
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .btn-add:hover {
+      background: #f0f5ff;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .btn-primary {
+      flex: 1;
+      background: #4f8ef7;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: #3a7de0;
+    }
+
+    .btn-primary:disabled {
+      background: #a0b4d8;
+      cursor: not-allowed;
+    }
+
+    .btn-zip {
+      background: #fff;
+      color: #4f8ef7;
+      border: 1.5px solid #4f8ef7;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-zip:hover:not(:disabled) {
+      background: #f0f5ff;
+    }
+
+    .btn-zip:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* 進捗 */
+    .progress-area {
+      display: none;
+      margin-top: 16px;
+    }
+
+    .progress-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+      font-size: 0.88rem;
+    }
+
+    .progress-item:last-child { border-bottom: none; }
+
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #e0e0e0;
+      border-top-color: #4f8ef7;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      flex-shrink: 0;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .icon-ok   { color: #27ae60; font-size: 1rem; }
+    .icon-err  { color: #e74c3c; font-size: 1rem; }
+
+    /* 結果 */
+    .results-area { display: none; }
+
+    .result-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 16px;
+    }
+
+    .result-card {
+      border: 1.5px solid #e8e8e8;
+      border-radius: 10px;
+      overflow: hidden;
+      transition: box-shadow 0.2s;
+    }
+
+    .result-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.1); }
+
+    .result-card.error { border-color: #fcc; background: #fff8f8; }
+
+    .thumbnail {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      object-position: top;
+      display: block;
+      border-bottom: 1px solid #e8e8e8;
+      background: #f5f5f5;
+    }
+
+    .result-info {
+      padding: 10px 12px;
+    }
+
+    .result-url {
+      font-size: 0.78rem;
+      color: #555;
+      word-break: break-all;
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+
+    .btn-download {
+      display: block;
+      width: 100%;
+      background: #4f8ef7;
+      color: #fff;
+      border: none;
+      padding: 7px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+      transition: background 0.2s;
+    }
+
+    .btn-download:hover { background: #3a7de0; }
+
+    .error-msg {
+      font-size: 0.8rem;
+      color: #e74c3c;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>スクリーンショット取得ツール</h1>
+    <p class="subtitle">URLを入力してフルページスクリーンショットを一括取得できます。</p>
+
+    <div class="card">
+      <div class="url-list" id="urlList">
+        <div class="url-row">
+          <input type="text" placeholder="https://example.com" />
+          <button class="btn-remove" onclick="removeRow(this)" title="削除">×</button>
+        </div>
+      </div>
+
+      <button class="btn-add" onclick="addRow()">＋ URLを追加</button>
+
+      <div class="actions">
+        <button class="btn-primary" id="btnCapture" onclick="capture()">スクリーンショット取得</button>
+        <button class="btn-zip" id="btnZip" onclick="downloadZip()" disabled>ZIP一括DL</button>
+      </div>
+
+      <div class="progress-area" id="progressArea">
+        <div id="progressList"></div>
+      </div>
+    </div>
+
+    <div class="results-area card" id="resultsArea">
+      <div class="result-grid" id="resultGrid"></div>
+    </div>
+  </div>
+
+  <script>
+    let capturedIds = [];
+
+    function addRow() {
+      const list = document.getElementById('urlList');
+      const row = document.createElement('div');
+      row.className = 'url-row';
+      row.innerHTML = `
+        <input type="text" placeholder="https://example.com" />
+        <button class="btn-remove" onclick="removeRow(this)" title="削除">×</button>
+      `;
+      list.appendChild(row);
+      row.querySelector('input').focus();
+    }
+
+    function removeRow(btn) {
+      const rows = document.querySelectorAll('.url-row');
+      if (rows.length <= 1) {
+        btn.closest('.url-row').querySelector('input').value = '';
+        return;
+      }
+      btn.closest('.url-row').remove();
+    }
+
+    async function capture() {
+      const inputs = document.querySelectorAll('.url-row input');
+      const urls = [...inputs].map(i => i.value.trim()).filter(Boolean);
+
+      if (urls.length === 0) {
+        alert('URLを1つ以上入力してください。');
+        return;
+      }
+
+      // UI リセット
+      capturedIds = [];
+      document.getElementById('btnCapture').disabled = true;
+      document.getElementById('btnZip').disabled = true;
+      document.getElementById('resultGrid').innerHTML = '';
+      document.getElementById('resultsArea').style.display = 'none';
+
+      // 進捗表示
+      const progressArea = document.getElementById('progressArea');
+      const progressList = document.getElementById('progressList');
+      progressArea.style.display = 'block';
+      progressList.innerHTML = urls.map((u, i) => `
+        <div class="progress-item" id="prog-${i}">
+          <div class="spinner"></div>
+          <span>${u}</span>
+        </div>
+      `).join('');
+
+      try {
+        const res = await fetch('/screenshot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls }),
+        });
+
+        const data = await res.json();
+
+        data.results.forEach((r, i) => {
+          const item = document.getElementById(`prog-${i}`);
+          if (r.status === 'ok') {
+            item.querySelector('.spinner').outerHTML = '<span class="icon-ok">✔</span>';
+            capturedIds.push(r.id);
+          } else {
+            item.querySelector('.spinner').outerHTML = '<span class="icon-err">✖</span>';
+          }
+        });
+
+        renderResults(data.results);
+
+      } catch (err) {
+        alert('エラーが発生しました: ' + err.message);
+      } finally {
+        document.getElementById('btnCapture').disabled = false;
+        document.getElementById('btnZip').disabled = capturedIds.length === 0;
+      }
+    }
+
+    function renderResults(results) {
+      const grid = document.getElementById('resultGrid');
+      const area = document.getElementById('resultsArea');
+
+      grid.innerHTML = results.map(r => {
+        if (r.status === 'ok') {
+          return `
+            <div class="result-card">
+              <img class="thumbnail" src="/download/${r.id}" alt="${r.url}" loading="lazy" />
+              <div class="result-info">
+                <div class="result-url">${escHtml(r.url)}</div>
+                <a class="btn-download" href="/download/${r.id}" download="screenshot-${r.id}.png">ダウンロード</a>
+              </div>
+            </div>`;
+        } else {
+          return `
+            <div class="result-card error">
+              <div class="result-info">
+                <div class="result-url">${escHtml(r.url)}</div>
+                <div class="error-msg">エラー: ${escHtml(r.error || '不明なエラー')}</div>
+              </div>
+            </div>`;
+        }
+      }).join('');
+
+      area.style.display = 'block';
+    }
+
+    async function downloadZip() {
+      if (capturedIds.length === 0) return;
+
+      const res = await fetch('/download-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: capturedIds }),
+      });
+
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'screenshots.zip';
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function escHtml(str) {
+      return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+  </script>
+</body>
+</html>
