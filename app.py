@@ -160,7 +160,53 @@ def screenshot():
 
             try:
                 page = browser.new_page(viewport={'width': 1440, 'height': 900})
-                page.goto(target_url, wait_until='networkidle', timeout=30000)
+
+                # DOM 読み込み完了まで待機
+                page.goto(target_url, wait_until='domcontentloaded', timeout=30000)
+
+                # ネットワークが落ち着くまで待つ（タイムアウトしても続行）
+                try:
+                    page.wait_for_load_state('networkidle', timeout=8000)
+                except Exception:
+                    pass
+
+                # Web フォント読み込み完了を待つ
+                try:
+                    page.evaluate('() => document.fonts.ready')
+                except Exception:
+                    pass
+
+                # アニメーション・トランジションを停止して見た目を固定
+                page.add_style_tag(content="""
+                    *, *::before, *::after {
+                        animation-duration: 0.001s !important;
+                        animation-delay: 0s !important;
+                        transition-duration: 0.001s !important;
+                    }
+                """)
+
+                # ページ全体をスクロールして遅延読み込み画像を発火させる
+                page.evaluate("""
+                    async () => {
+                        await new Promise((resolve) => {
+                            let total = 0;
+                            const step = 400;
+                            const timer = setInterval(() => {
+                                window.scrollBy(0, step);
+                                total += step;
+                                if (total >= document.body.scrollHeight) {
+                                    clearInterval(timer);
+                                    window.scrollTo(0, 0);
+                                    resolve();
+                                }
+                            }, 80);
+                        });
+                    }
+                """)
+
+                # 遅延コンテンツが描画されるまで少し待つ
+                page.wait_for_timeout(1500)
+
                 page.screenshot(path=str(file_path), full_page=True)
                 page.close()
                 results.append({'url': url, 'id': file_id, 'status': 'ok'})
